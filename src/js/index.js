@@ -1,4 +1,5 @@
 import '../css/index.scss';
+import HeartImage from '../images/heart.png';
 
 class BTHRClient {
     constructor() {
@@ -29,8 +30,7 @@ class BTHRClient {
 
                 switch (message.method) {
                     case "updateHR":
-                        console.log(`New HR: ${message.data.hr}`);
-                        this.updateHeartRateValue(message.data.hr);
+                        this.updateHeartRateValueFromServer(message.data.hr);
                         break;
                     default:
                         console.warn(`Received message with unknown method!`);
@@ -41,11 +41,13 @@ class BTHRClient {
             }
         };
 
-        this.startSendingButton = document.querySelector(".startSendingButton");
-        this.startSendingButton.addEventListener("click", (e) => {
-            this.startSendingButtonOnClick();
+        this.mainContainer = document.querySelector(".mainContainer");
+        this.mainContainer.addEventListener("click", (e) => {
+            this.mainContainerOnClick();
         });
 
+        this.heartRateAnimation = document.querySelector('.heartRateAnimation');
+        this.heartRateAnimation.src = HeartImage;
 
         this.latestHeartRateValues = [];
         this.latestHeartRateValue = undefined;
@@ -54,42 +56,81 @@ class BTHRClient {
         this.initComplete = true;
     }
 
-    updateHeartRateValue(newValue) {
-        this.latestHeartRateValue = newValue;
+    updateHeartRateValueFromServer(newValue) {
+        this.latestHeartRateValue = parseInt(newValue);
 
         this.latestHeartRateValues.push(this.latestHeartRateValue / 2);
         this.latestHeartRateValues = this.latestHeartRateValues.slice(-200);
-        this.heartRateValueEl.innerHTML = this.latestHeartRateValue;
+        this.heartRateValueEl.innerHTML = this.latestHeartRateValue > -1 ? this.latestHeartRateValue : "--";
+        this.heartRateAnimation.style.animationDuration = `${1 / (this.latestHeartRateValue / 60)}s`;
     }
 
-    async btConnect(properties) {
-        const device = await navigator.bluetooth.requestDevice({
+    sendHeartRateValueToServer(newValue) {
+        let msg = {
+            "method": `updateHR`,
+            "data": {
+                "hr": newValue,
+            },
+            "status": "ok",
+        };
+
+        this.client.send(JSON.stringify(msg));
+    }
+
+    onHeartRateValueChanged(e) {
+        const val = e.target.value.getInt8(1);
+
+        console.log(`HR from BT device: ${val}`);
+
+        this.sendHeartRateValueToServer(val);
+    }
+
+    async btConnect() {
+        console.log(`Requesting device...`);
+        this.btDevice = await navigator.bluetooth.requestDevice({
             filters: [{ services: ['heart_rate'] }],
             acceptAllDevices: false,
         });
-        console.log(`Getting heart rate...`);
-        const server = await device.gatt.connect(),
-            service = await server.getPrimaryService('heart_rate'),
-            char = await service.getCharacteristic('heart_rate_measurement');
 
-        char.oncharacteristicvaluechanged = properties.onChange;
-        char.startNotifications();
+        console.log(`Got device! Subscribing to heart rate measurement updates...`);
 
-        return char;
+        this.btRemoteGATTServer = await this.btDevice.gatt.connect();
+        this.btGATTService = await this.btRemoteGATTServer.getPrimaryService('heart_rate');
+        this.btGATTCharacteristic = await this.btGATTService.getCharacteristic('heart_rate_measurement');
+
+        console.log(`Subscribed to heart rate measurement updates!`);
+
+        this.mainContainer.classList.add("mainContainer--subscribed");
+
+        this.btGATTCharacteristic.oncharacteristicvaluechanged = (e) => { this.onHeartRateValueChanged(e); };
+        this.btGATTCharacteristic.startNotifications();
+
+        return this.btGATTCharacteristic;
     }
 
-    startSendingButtonOnClick() {
+    mainContainerOnClick() {
         if (!(navigator && navigator.bluetooth)) {
             console.error(`\`navigator.bluetooth\` is falsey!`);
             return;
         }
 
-        this.btConnect({
-            onChange: e => {
-                const val = e.target.value.getInt8(1);
-                this.updateHeartRateValue(val);
-            },
-        }).catch(e => console.warn(Error(e)))
+        if (this.btRemoteGATTServer) {
+            console.log(`Disconnecting from BT GATT Server and device...`);
+            this.btRemoteGATTServer.disconnect();
+
+            this.btDevice = undefined;
+            this.btRemoteGATTServer = undefined;
+            this.btGATTService = undefined;
+            this.btGATTCharacteristic = undefined;
+
+            this.mainContainer.classList.remove("mainContainer--subscribed");
+            return;
+        }
+
+        this.btConnect()
+        .catch((e) => {
+            console.warn(Error(e));
+        });
     }
 }
 

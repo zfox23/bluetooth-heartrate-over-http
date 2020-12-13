@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const url = require('url');
 
 const PORT = 3000;
-const HR_UPDATE_INTERVAL_MS = 500;
+const HR_UPDATE_INTERVAL_MS = 1000;
 
 class BTHRServer {
     constructor() {
