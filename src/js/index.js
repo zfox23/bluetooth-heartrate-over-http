@@ -30,6 +30,7 @@ class BTHRClient {
                 switch (message.method) {
                     case "updateHR":
                         console.log(`New HR: ${message.data.hr}`);
+                        this.updateHeartRateValue(message.data.hr);
                         break;
                     default:
                         console.warn(`Received message with unknown method!`);
@@ -40,9 +41,9 @@ class BTHRClient {
             }
         };
 
-        this.toggleSendingButton = document.querySelector(".toggleSendingButton");
-        this.toggleSendingButton.addEventListener("click", (e) => {
-            this.toggleSendingButtonOnClick();
+        this.startSendingButton = document.querySelector(".startSendingButton");
+        this.startSendingButton.addEventListener("click", (e) => {
+            this.startSendingButtonOnClick();
         });
 
 
@@ -61,26 +62,31 @@ class BTHRClient {
         this.heartRateValueEl.innerHTML = this.latestHeartRateValue;
     }
 
-    toggleSendingButtonOnClick() {
-        const connect = async props => {
-            console.clear()
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: ['heart_rate'] }],
-                acceptAllDevices: false,
-            })
-            console.log(`%c\n👩🏼‍⚕️`, 'font-size: 82px;', 'Starting HR...\n\n')
-            const server = await device.gatt.connect(),
-                service = await server.getPrimaryService('heart_rate'),
-                char = await service.getCharacteristic('heart_rate_measurement')
+    async btConnect(properties) {
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['heart_rate'] }],
+            acceptAllDevices: false,
+        });
+        console.log(`Getting heart rate...`);
+        const server = await device.gatt.connect(),
+            service = await server.getPrimaryService('heart_rate'),
+            char = await service.getCharacteristic('heart_rate_measurement');
 
-            char.oncharacteristicvaluechanged = props.onChange;
-            char.startNotifications();
-            return char;
+        char.oncharacteristicvaluechanged = properties.onChange;
+        char.startNotifications();
+
+        return char;
+    }
+
+    startSendingButtonOnClick() {
+        if (!(navigator && navigator.bluetooth)) {
+            console.error(`\`navigator.bluetooth\` is falsey!`);
+            return;
         }
 
-        connect({
+        this.btConnect({
             onChange: e => {
-                const val = e.target.value.getInt8(1)
+                const val = e.target.value.getInt8(1);
                 this.updateHeartRateValue(val);
             },
         }).catch(e => console.warn(Error(e)))

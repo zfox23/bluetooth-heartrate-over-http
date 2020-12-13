@@ -18,10 +18,10 @@ class BTHRServer {
         this.wsServer.on('connection', (wsConnection) => {
             console.log(`${Date.now()}: Connection accepted.`);
 
-            wsConnection.on('message', (message) => { this.onWsConnectionMessage(message); });
-            wsConnection.on('close', (reasonCode, description) => { this.onWsConnectionClose(reasonCode, description); });
+            wsConnection.on('message', (message) => { this.wsConnectionOnMessage(message); });
+            wsConnection.on('close', (reasonCode, description) => { this.wsConnectionOnClose(reasonCode, description); });
         });
-        
+
         this.httpServer = http.createServer();
         this.httpServer.on('upgrade', (request, socket, head) => {
             const pathname = url.parse(request.url).pathname;
@@ -67,7 +67,7 @@ class BTHRServer {
         return true;
     }
 
-    onWsConnectionMessage(message) {
+    wsConnectionOnMessage(message) {
         let parsedMessage;
         try {
             parsedMessage = JSON.parse(message);
@@ -86,9 +86,7 @@ class BTHRServer {
         }
     }
 
-    onWsConnectionClose(reasonCode, description) {
-
-    }
+    wsConnectionOnClose(reasonCode, description) { }
 }
 
 let bthrServer = new BTHRServer();
