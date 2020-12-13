@@ -1,0 +1,14 @@
+{
+  "name": "bluetooth-heartrate-over-http-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./src/index.js"
+  },
+  "author": "Zach Fox",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^7.4.1"
+  }
+}

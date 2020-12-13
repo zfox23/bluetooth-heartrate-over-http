@@ -1,0 +1,37 @@
+@import './include-media';
+
+body {
+    font-family: "Arial", serif;
+    margin: 0;
+    color: #222;
+}
+
+@keyframes enterFromTop {
+    0% {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.animation--enterFromTop {
+    animation: enterFromTop ease-out 0.6s;
+}
+
+@keyframes exitToBottom {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+}
+.animation--exitToBottom {
+    animation: exitToBottom ease-in 0.2s;
+}
