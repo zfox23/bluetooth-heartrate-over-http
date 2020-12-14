@@ -65,17 +65,19 @@ body {
     -webkit-text-stroke-color: black;
 }
 
-.transmittingText {
+.statusText {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     height: 72px;
     display: flex;
+    text-align: center;
     justify-content: center;
     align-items: center;
     align-content: center;
     background-color: #DDD;
+    pointer-events: none;
 
     &--displayNone {
         display: none;

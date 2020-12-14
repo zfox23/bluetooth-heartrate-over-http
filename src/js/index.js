@@ -1,5 +1,7 @@
 import '../css/index.scss';
 import HeartImage from '../images/heart.png';
+const REASONABLE_HR_MIN = 60;
+const REASONABLE_HR_MAX = 150;
 
 class BTHRClient {
     constructor() {
@@ -60,8 +62,8 @@ class BTHRClient {
             data: {
                 datasets: [{
                     label: 'Heart Rate Values',
-                    borderColor: 'rgba(255, 0, 0, 0.8)',
-                    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                    borderColor: [],
+                    backgroundColor: [],
                     fill: false,
                     data: [],
                     pointRadius: 0,
@@ -105,7 +107,13 @@ class BTHRClient {
             }
         });
 
-        this.transmittingText = document.querySelector(".transmittingText");
+        this.statusText = document.querySelector(".statusText");
+        // If browser is BT capable and is tall enough to show everything necessary...
+        // (For some reason, the OBS browser reprts `navigator.bluetooth` as truthy.)
+        if (navigator.bluetooth && window.innerHeight > 100) {
+            this.statusText.classList.remove("statusText--displayNone");
+            this.statusText.innerHTML = `Tap anywhere to begin...`;
+        }
 
         this.wakeLockSentinel = null;
 
@@ -136,8 +144,31 @@ class BTHRClient {
         }
     }
 
+    /**
+    * A linear interpolator for hexadecimal colors.
+    * From: https://gist.github.com/rosszurowski/67f04465c424a9bc0dae
+    * @param {String} a
+    * @param {String} b
+    * @param {Number} amount
+    * @example
+    * // returns #7F7F7F
+    * lerpColor('#000000', '#ffffff', 0.5)
+    * @returns {String}
+    */
+    lerpColor(a, b, amount) {
+        var ah = parseInt(a.replace(/#/g, ''), 16),
+            ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff,
+            bh = parseInt(b.replace(/#/g, ''), 16),
+            br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff,
+            rr = ar + amount * (br - ar),
+            rg = ag + amount * (bg - ag),
+            rb = ab + amount * (bb - ab);
+
+        return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb | 0).toString(16).slice(1);
+    }
+
     setupHeartRateAnimationTimer__firstPart() {
-        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || REASONABLE_HR_MIN) / REASONABLE_HR_MIN) * 1000;
         let firstPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
 
         this.heartRateAnimationTimer = setTimeout(() => {
@@ -152,7 +183,7 @@ class BTHRClient {
     }
 
     setupHeartRateAnimationTimer__secondPart() {
-        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || REASONABLE_HR_MIN) / REASONABLE_HR_MIN) * 1000;
         let secondPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
 
         this.heartRateAnimationTimer = setTimeout(() => {
@@ -163,7 +194,7 @@ class BTHRClient {
     }
 
     setupHeartRateAnimationTimer__thirdPart() {
-        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || REASONABLE_HR_MIN) / REASONABLE_HR_MIN) * 1000;
         let thirdPartTimeoutMS = fullAnimationTimeoutMS * 0.4;
 
         this.heartRateAnimationTimer = setTimeout(() => {
@@ -172,17 +203,34 @@ class BTHRClient {
         }, thirdPartTimeoutMS);
     }
 
+    clamp(value, min, max) {
+        if (min > max) {
+            let temp = min;
+            min = max;
+            max = temp;
+        }
+        return Math.min(Math.max(value, min), max);
+    }
+
     updateHeartRateValueFromServer(newValue) {
         this.latestHeartRateValue = parseInt(newValue);
 
         if (newValue > 0) {
             this.heartRateChart.data.datasets[0].data.push({
                 "t": new Date(),
-                "y": newValue
+                "y": newValue,
             });
+
+            let chartPointColor = this.lerpColor("#6bc23c", "#e34327", (this.clamp(newValue, REASONABLE_HR_MIN, REASONABLE_HR_MAX) - REASONABLE_HR_MIN) / (REASONABLE_HR_MAX - REASONABLE_HR_MIN));
+            this.heartRateChart.data.datasets[0].borderColor.push(chartPointColor);
+            this.heartRateChart.data.datasets[0].backgroundColor.push(chartPointColor);
+
             if (this.heartRateChart.data.datasets[0].data.length > 50) {
                 this.heartRateChart.data.datasets[0].data.shift();
+                this.heartRateChart.data.datasets[0].borderColor.shift();
+                this.heartRateChart.data.datasets[0].backgroundColor.shift();
             }
+
             this.heartRateChart.update();
         }
 
@@ -205,34 +253,62 @@ class BTHRClient {
         const val = e.target.value.getInt8(1);
 
         console.log(`HR from BT device: ${val}`);
+        this.statusText.innerHTML = `Transmitting...`;
 
         this.sendHeartRateValueToServer(val);
     }
 
-    async btConnect() {
-        console.log(`Requesting device...`);
-        this.btDevice = await navigator.bluetooth.requestDevice({
-            filters: [{ services: ['heart_rate'] }],
-            acceptAllDevices: false,
+    btConnect() {
+        return new Promise((resolve, reject) => {
+            this.statusText.classList.remove("statusText--displayNone");
+
+            console.log(`Requesting device...`);
+            this.statusText.innerHTML = `Requesting BT device...`;
+
+            navigator.bluetooth.requestDevice({
+                filters: [{ services: ['heart_rate'] }],
+                acceptAllDevices: false,
+            })
+                .then((device) => {
+                    this.btDevice = device;
+
+                    console.log(`Got device! Subscribing to heart rate measurement updates...`);
+                    this.statusText.innerHTML = `Subscribing to heart rate measurement updates...`;
+
+                    this.btDevice.gatt.connect()
+                        .then((server) => {
+                            this.btRemoteGATTServer = server;
+                            this.btRemoteGATTServer.getPrimaryService('heart_rate')
+                                .then((service) => {
+                                    this.btGATTService = service;
+                                    this.btGATTService.getCharacteristic('heart_rate_measurement')
+                                        .then((char) => {
+                                            this.btGATTCharacteristic = char;
+
+                                            this.btGATTCharacteristic.oncharacteristicvaluechanged = (e) => { this.onHeartRateValueChanged(e); };
+                                            this.btGATTCharacteristic.startNotifications();
+
+                                            console.log(`Subscribed to heart rate measurement updates!`);
+                                            this.statusText.innerHTML = `Subscribed to heart rate measurement updates!`;
+
+                                            resolve(this.btGATTCharacteristic);
+                                        })
+                                        .catch((e) => {
+                                            reject(e);
+                                        })
+                                })
+                                .catch((e) => {
+                                    reject(e);
+                                })
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        })
+                })
+                .catch((e) => {
+                    reject(e);
+                })
         });
-
-        console.log(`Got device! Subscribing to heart rate measurement updates...`);
-
-        this.btRemoteGATTServer = await this.btDevice.gatt.connect();
-        this.btGATTService = await this.btRemoteGATTServer.getPrimaryService('heart_rate');
-        this.btGATTCharacteristic = await this.btGATTService.getCharacteristic('heart_rate_measurement');
-
-        console.log(`Subscribed to heart rate measurement updates!`);
-
-        this.requestWakeLock();
-
-        this.mainContainer.classList.add("mainContainer--subscribed");
-        this.transmittingText.classList.remove("transmittingText--displayNone");
-
-        this.btGATTCharacteristic.oncharacteristicvaluechanged = (e) => { this.onHeartRateValueChanged(e); };
-        this.btGATTCharacteristic.startNotifications();
-
-        return this.btGATTCharacteristic;
     }
 
     mainContainerOnClick() {
@@ -253,12 +329,18 @@ class BTHRClient {
             this.btGATTCharacteristic = undefined;
 
             this.mainContainer.classList.remove("mainContainer--subscribed");
-            this.transmittingText.classList.add("transmittingText--displayNone");
+            this.statusText.innerHTML = `Disconnected from BT device. Tap anywhere to begin again...`;
             return;
         }
 
         this.btConnect()
+            .then(() => {
+                this.requestWakeLock();
+
+                this.mainContainer.classList.add("mainContainer--subscribed");
+            })
             .catch((e) => {
+                this.statusText.innerHTML = e;
                 console.warn(Error(e));
             });
     }
