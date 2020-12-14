@@ -51,8 +51,7 @@ class BTHRClient {
 
         this.setupHeartRateAnimationTimer__firstPart();
 
-        this.latestHeartRateValue = undefined;
-        this.latestHeartRateValueForAnimation = 60;
+        this.latestHeartRateValue = 0;
         this.heartRateValueEl = document.querySelector(".heartRateValue");
 
         this.ctx = document.querySelector('.heartRateChart').getContext('2d');
@@ -108,35 +107,63 @@ class BTHRClient {
 
         this.transmittingText = document.querySelector(".transmittingText");
 
+        this.wakeLockSentinel = null;
+
         this.initComplete = true;
     }
 
+    async requestWakeLock() {
+        try {
+            this.wakeLockSentinel = await navigator.wakeLock.request('screen');
+            this.wakeLockSentinel.addEventListener('release', () => {
+                console.log('Wake Lock was released.');
+            });
+            console.log('Wake Lock is active.');
+        } catch (err) {
+            console.error(`${err.name}, ${err.message}`);
+        }
+    }
+
+    async releaseWakeLock() {
+        if (!this.wakeLockSentinel) {
+            return;
+        }
+        try {
+            await this.wakeLockSentinel.release();
+            this.wakeLockSentinel = null;
+        } catch (err) {
+            console.error(`${err.name}, ${err.message}`);
+        }
+    }
+
     setupHeartRateAnimationTimer__firstPart() {
-        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
         let firstPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
 
         this.heartRateAnimationTimer = setTimeout(() => {
             this.heartRateAnimationTimer = undefined;
-            this.heartRateAnimation.style.width = "68px";
-            this.heartRateAnimation.style.height = "68px";
+            if (this.latestHeartRateValue) {
+                this.heartRateAnimation.classList.add("heartRateAnimation--big");
+            } else {
+                this.heartRateAnimation.classList.remove("heartRateAnimation--big");
+            }
             this.setupHeartRateAnimationTimer__secondPart();
         }, firstPartTimeoutMS);
     }
 
     setupHeartRateAnimationTimer__secondPart() {
-        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
         let secondPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
 
         this.heartRateAnimationTimer = setTimeout(() => {
             this.heartRateAnimationTimer = undefined;
-            this.heartRateAnimation.style.width = "64px";
-            this.heartRateAnimation.style.height = "64px";
+            this.heartRateAnimation.classList.remove("heartRateAnimation--big");
             this.setupHeartRateAnimationTimer__thirdPart();
         }, secondPartTimeoutMS);
     }
 
     setupHeartRateAnimationTimer__thirdPart() {
-        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let fullAnimationTimeoutMS = 1 / ((this.latestHeartRateValue || 60) / 60) * 1000;
         let thirdPartTimeoutMS = fullAnimationTimeoutMS * 0.4;
 
         this.heartRateAnimationTimer = setTimeout(() => {
@@ -146,9 +173,6 @@ class BTHRClient {
     }
 
     updateHeartRateValueFromServer(newValue) {
-        if (newValue > 0) {
-            this.latestHeartRateValueForAnimation = newValue;
-        }
         this.latestHeartRateValue = parseInt(newValue);
 
         if (newValue > 0) {
@@ -200,6 +224,8 @@ class BTHRClient {
 
         console.log(`Subscribed to heart rate measurement updates!`);
 
+        this.requestWakeLock();
+
         this.mainContainer.classList.add("mainContainer--subscribed");
         this.transmittingText.classList.remove("transmittingText--displayNone");
 
@@ -218,6 +244,8 @@ class BTHRClient {
         if (this.btRemoteGATTServer) {
             console.log(`Disconnecting from BT GATT Server and device...`);
             this.btRemoteGATTServer.disconnect();
+
+            this.releaseWakeLock();
 
             this.btDevice = undefined;
             this.btRemoteGATTServer = undefined;

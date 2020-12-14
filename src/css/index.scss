@@ -1,4 +1,6 @@
 @import './include-media';
+$heartRateAnimationDimensionsSmall: 64px;
+$heartRateAnimationDimensionsBig: 68px;
 
 body {
     font-family: "Arial", serif;
@@ -32,8 +34,8 @@ body {
     justify-content: center;
     align-items: center;
     align-content: center;
-    min-width: 68px;
-    min-height: 68px;
+    min-width: $heartRateAnimationDimensionsBig;
+    min-height: $heartRateAnimationDimensionsBig;
     margin: 0 8px;
 }
 
@@ -43,8 +45,13 @@ body {
 }
 
 .heartRateAnimation {
-    width: 64px;
-    height: 64px;
+    width: $heartRateAnimationDimensionsSmall;
+    height: $heartRateAnimationDimensionsSmall;
+
+    &--big {
+        width: $heartRateAnimationDimensionsBig;
+        height: $heartRateAnimationDimensionsBig;
+    }
 }
 
 .heartRateValue {
