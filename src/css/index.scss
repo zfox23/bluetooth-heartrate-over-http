@@ -15,16 +15,13 @@ body {
     justify-content: center;
     align-items: center;
     align-content: center;
-
-    &--subscribed {
-    }
 }
 
-.heartRateValueContainer {
+.heartRateDataContainer {
     margin: 0;
     display: flex;
-    flex-direction: row-reverse;
-    justify-content: flex-start;
+    flex-direction: row;
+    justify-content: flex-end;
     align-items: center;
     align-content: center;
     width: 100%;
@@ -35,9 +32,17 @@ body {
     justify-content: center;
     align-items: center;
     align-content: center;
-    width: $heartbeat-max-dimension-px;
-    height: $heartbeat-max-dimension-px;
+    min-width: $heartbeat-max-dimension-px;
+    min-height: $heartbeat-max-dimension-px;
     margin: 0 8px;
+}
+
+.heartRateChartContainer {
+    width: 100%;
+    height: 100%;
+}
+
+.heartRateChart {
 }
 
 @keyframes heartbeat {
@@ -60,14 +65,34 @@ body {
 .heartRateAnimation {
     width: 64px;
     height: 64px;
-    animation: heartbeat 1s infinite;
+    animation: heartbeat 99999s infinite;
+    animation-fill-mode: forwards;
 }
 
 .heartRateValue {
     margin: 0;
-    height: 100%;
     font-size: 64px;
+    width: 100px;
+    text-align: center;
+    flex-shrink: 0;
     color: #FFFFFF;
     -webkit-text-stroke-width: 1px;
     -webkit-text-stroke-color: black;
+}
+
+.transmittingText {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 72px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    align-content: center;
+    background-color: #DDD;
+
+    &--displayNone {
+        display: none;
+    }
 }

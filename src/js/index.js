@@ -49,9 +49,61 @@ class BTHRClient {
         this.heartRateAnimation = document.querySelector('.heartRateAnimation');
         this.heartRateAnimation.src = HeartImage;
 
-        this.latestHeartRateValues = [];
         this.latestHeartRateValue = undefined;
         this.heartRateValueEl = document.querySelector(".heartRateValue");
+
+        this.ctx = document.querySelector('.heartRateChart').getContext('2d');
+        this.heartRateChart = new Chart(this.ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Heart Rate Values',
+                    borderColor: 'rgba(255, 0, 0, 0.8)',
+                    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+                    fill: false,
+                    data: [],
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                layout: {
+                    padding: {
+                        left: 0,
+                        right: 4,
+                        top: 4,
+                        bottom: 4
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                legend: {
+                    display: false
+                },
+                scales: {
+                    xAxes: [{
+                        display: false,
+                        gridLines: {
+                            display: false,
+                        },
+                        type: 'time',
+                        distribution: 'linear',
+                        time: {
+                            unit: 'millisecond'
+                        }
+                    }],
+                    yAxes: [{
+                        gridLines: {
+                            display: false,
+                        },
+                        ticks: {
+                            display: false,
+                        }
+                    }]
+                }
+            }
+        });
+
+        this.transmittingText = document.querySelector(".transmittingText");
 
         this.initComplete = true;
     }
@@ -59,10 +111,24 @@ class BTHRClient {
     updateHeartRateValueFromServer(newValue) {
         this.latestHeartRateValue = parseInt(newValue);
 
-        this.latestHeartRateValues.push(this.latestHeartRateValue / 2);
-        this.latestHeartRateValues = this.latestHeartRateValues.slice(-200);
-        this.heartRateValueEl.innerHTML = this.latestHeartRateValue > -1 ? this.latestHeartRateValue : "--";
-        this.heartRateAnimation.style.animationDuration = `${1 / (this.latestHeartRateValue / 60)}s`;
+        if (newValue > 0) {
+            this.heartRateChart.data.datasets[0].data.push({
+                "t": new Date(),
+                "y": newValue
+            });
+            if (this.heartRateChart.data.datasets[0].data.length > 50) {
+                this.heartRateChart.data.datasets[0].data.shift();
+            }
+            this.heartRateChart.update();
+        }
+
+        this.heartRateValueEl.innerHTML = this.latestHeartRateValue > 0 ? this.latestHeartRateValue : "--";
+
+        let animationDuration = 1 / (this.latestHeartRateValue / 60);
+        if (this.latestHeartRateValue === 0) {
+            animationDuration = "99999s";
+        }
+        this.heartRateAnimation.style.animationDuration = `${animationDuration}s`;
     }
 
     sendHeartRateValueToServer(newValue) {
@@ -101,6 +167,7 @@ class BTHRClient {
         console.log(`Subscribed to heart rate measurement updates!`);
 
         this.mainContainer.classList.add("mainContainer--subscribed");
+        this.transmittingText.classList.remove("transmittingText--displayNone");
 
         this.btGATTCharacteristic.oncharacteristicvaluechanged = (e) => { this.onHeartRateValueChanged(e); };
         this.btGATTCharacteristic.startNotifications();
@@ -124,13 +191,14 @@ class BTHRClient {
             this.btGATTCharacteristic = undefined;
 
             this.mainContainer.classList.remove("mainContainer--subscribed");
+            this.transmittingText.classList.add("transmittingText--displayNone");
             return;
         }
 
         this.btConnect()
-        .catch((e) => {
-            console.warn(Error(e));
-        });
+            .catch((e) => {
+                console.warn(Error(e));
+            });
     }
 }
 

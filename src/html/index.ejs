@@ -6,17 +6,23 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.bundle.js"></script>
+
     <title>Bluetooth Heartrate Over HTTP</title>
 </head>
 
 <body>
     <div class="mainContainer">
-        <div class="heartRateValueContainer">
+        <div class="heartRateDataContainer">
+            <div class="heartRateChartContainer">
+                <canvas class="heartRateChart"></canvas>
+            </div>
+            <div class="heartRateValue"></div>
             <div class="heartRateAnimationContainer">
                 <img class="heartRateAnimation"></img>
             </div>
-            <div class="heartRateValue"></div>
         </div>
+        <div class="transmittingText transmittingText--displayNone">Transmitting...</div>
     </div>
 </body>
 

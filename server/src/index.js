@@ -4,16 +4,18 @@ const url = require('url');
 
 const PORT = 3000;
 const HR_UPDATE_INTERVAL_MS = 1000;
+const NO_HR_DATA_TIMEOUT_MS = 5000;
 
 class BTHRServer {
     constructor() {
-        this.latestHRValue = -1;
+        this.latestHRValue = 0;
 
         this.wsServer = new WebSocket.Server({
             "noServer": true
         });
 
-        this.setupHrUpdateInterval();
+        this.setupSendHRToClientInterval();
+        this.setupNoHRDataTimeout();
 
         this.wsServer.on('connection', (wsConnection) => {
             console.log(`${Date.now()}: Connection accepted.`);
@@ -46,8 +48,8 @@ class BTHRServer {
         });
     }
 
-    setupHrUpdateInterval() {
-        this.hrUpdateInterval = setInterval(() => {
+    setupSendHRToClientInterval() {
+        this.sendHRToClientInterval = setInterval(() => {
             this.wsServer.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
@@ -62,8 +64,19 @@ class BTHRServer {
         }, HR_UPDATE_INTERVAL_MS);
     }
 
+    setupNoHRDataTimeout() {
+        if (this.noHRDataTimeout) {
+            clearTimeout(this.noHRDataTimeout);
+            this.noHRDataTimeout = undefined;
+        }
+
+        this.noHRDataTimeout = setTimeout(() => {
+            console.warn(`No HR data received for ${NO_HR_DATA_TIMEOUT_MS}ms.`);
+            this.latestHRValue = 0;
+        }, NO_HR_DATA_TIMEOUT_MS);
+    }
+
     originIsAllowed(origin) {
-        //return (origin === "http://localhost");
         return true;
     }
 
@@ -78,6 +91,7 @@ class BTHRServer {
 
         switch (parsedMessage.method) {
             case "updateHR":
+                this.setupNoHRDataTimeout();
                 this.latestHRValue = parsedMessage.data.hr;
                 break;
             default:
