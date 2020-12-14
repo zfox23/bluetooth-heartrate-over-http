@@ -49,7 +49,10 @@ class BTHRClient {
         this.heartRateAnimation = document.querySelector('.heartRateAnimation');
         this.heartRateAnimation.src = HeartImage;
 
+        this.setupHeartRateAnimationTimer__firstPart();
+
         this.latestHeartRateValue = undefined;
+        this.latestHeartRateValueForAnimation = 60;
         this.heartRateValueEl = document.querySelector(".heartRateValue");
 
         this.ctx = document.querySelector('.heartRateChart').getContext('2d');
@@ -108,7 +111,44 @@ class BTHRClient {
         this.initComplete = true;
     }
 
+    setupHeartRateAnimationTimer__firstPart() {
+        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let firstPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
+
+        this.heartRateAnimationTimer = setTimeout(() => {
+            this.heartRateAnimationTimer = undefined;
+            this.heartRateAnimation.style.width = "68px";
+            this.heartRateAnimation.style.height = "68px";
+            this.setupHeartRateAnimationTimer__secondPart();
+        }, firstPartTimeoutMS);
+    }
+
+    setupHeartRateAnimationTimer__secondPart() {
+        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let secondPartTimeoutMS = fullAnimationTimeoutMS * 0.3;
+
+        this.heartRateAnimationTimer = setTimeout(() => {
+            this.heartRateAnimationTimer = undefined;
+            this.heartRateAnimation.style.width = "64px";
+            this.heartRateAnimation.style.height = "64px";
+            this.setupHeartRateAnimationTimer__thirdPart();
+        }, secondPartTimeoutMS);
+    }
+
+    setupHeartRateAnimationTimer__thirdPart() {
+        let fullAnimationTimeoutMS = 1 / (this.latestHeartRateValueForAnimation / 60) * 1000;
+        let thirdPartTimeoutMS = fullAnimationTimeoutMS * 0.4;
+
+        this.heartRateAnimationTimer = setTimeout(() => {
+            this.heartRateAnimationTimer = undefined;
+            this.setupHeartRateAnimationTimer__firstPart();
+        }, thirdPartTimeoutMS);
+    }
+
     updateHeartRateValueFromServer(newValue) {
+        if (newValue > 0) {
+            this.latestHeartRateValueForAnimation = newValue;
+        }
         this.latestHeartRateValue = parseInt(newValue);
 
         if (newValue > 0) {
@@ -123,12 +163,6 @@ class BTHRClient {
         }
 
         this.heartRateValueEl.innerHTML = this.latestHeartRateValue > 0 ? this.latestHeartRateValue : "--";
-
-        let animationDuration = 1 / (this.latestHeartRateValue / 60);
-        if (this.latestHeartRateValue === 0) {
-            animationDuration = "99999s";
-        }
-        this.heartRateAnimation.style.animationDuration = `${animationDuration}s`;
     }
 
     sendHeartRateValueToServer(newValue) {
