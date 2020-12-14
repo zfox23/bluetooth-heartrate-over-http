@@ -67,9 +67,14 @@ class BTHRClient {
                     fill: false,
                     data: [],
                     pointRadius: 0,
+                    lineTension: 0.4,
                 }]
             },
             options: {
+                animation: {
+                    duration: 1000,
+                    easing: "easeOutQuart"
+                },
                 layout: {
                     padding: {
                         left: 0,
@@ -252,8 +257,7 @@ class BTHRClient {
     onHeartRateValueChanged(e) {
         const val = e.target.value.getInt8(1);
 
-        console.log(`HR from BT device: ${val}`);
-        this.statusText.innerHTML = `Transmitting...`;
+        this.statusText.innerHTML = `Transmitting "${val}"...`;
 
         this.sendHeartRateValueToServer(val);
     }
