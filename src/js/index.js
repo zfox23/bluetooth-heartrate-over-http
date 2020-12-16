@@ -279,6 +279,8 @@ class BTHRClient {
                     console.log(`Got device! Subscribing to heart rate measurement updates...`);
                     this.statusText.innerHTML = `Subscribing to heart rate measurement updates...`;
 
+                    this.btDevice.addEventListener('gattserverdisconnected', () => { this.onBTDisconnected();});
+
                     this.btDevice.gatt.connect()
                         .then((server) => {
                             this.btRemoteGATTServer = server;
@@ -315,6 +317,18 @@ class BTHRClient {
         });
     }
 
+    onBTDisconnected() {
+        this.releaseWakeLock();
+
+        this.btDevice = undefined;
+        this.btRemoteGATTServer = undefined;
+        this.btGATTService = undefined;
+        this.btGATTCharacteristic = undefined;
+
+        this.mainContainer.classList.remove("mainContainer--subscribed");
+        this.statusText.innerHTML = `Disconnected from BT device. Tap anywhere to begin again...`;
+    }
+
     mainContainerOnClick() {
         if (!(navigator && navigator.bluetooth)) {
             console.error(`\`navigator.bluetooth\` is falsey!`);
@@ -324,16 +338,6 @@ class BTHRClient {
         if (this.btRemoteGATTServer) {
             console.log(`Disconnecting from BT GATT Server and device...`);
             this.btRemoteGATTServer.disconnect();
-
-            this.releaseWakeLock();
-
-            this.btDevice = undefined;
-            this.btRemoteGATTServer = undefined;
-            this.btGATTService = undefined;
-            this.btGATTCharacteristic = undefined;
-
-            this.mainContainer.classList.remove("mainContainer--subscribed");
-            this.statusText.innerHTML = `Disconnected from BT device. Tap anywhere to begin again...`;
             return;
         }
 
